@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import cv2
 from threading import Thread
@@ -62,7 +63,7 @@ def multithread(src, save_video=True):
 			video_getter.stop()
 			break
 
-def singlethread(src, save_video=True, downscale=4):
+def singlethread(src, save_video=True, downscale=4, speed=1):
 	stream = cv2.VideoCapture(src)
 
 	frame_width = int(stream.get(3)) 
@@ -71,8 +72,8 @@ def singlethread(src, save_video=True, downscale=4):
 	out_width = frame_width // downscale
 	out_height = frame_height // downscale
 
-	size = (out_width, out_width) 
-	result = cv2.VideoWriter('out.avi', cv2.VideoWriter_fourcc(*'MJPG'), 10, size) 
+	size = (out_width, out_height) 
+	result = cv2.VideoWriter('out.avi', cv2.VideoWriter_fourcc(*'MJPG'), 30 * speed, size) 
 
 	echoes = []
 	num_echoes = 60
@@ -106,7 +107,7 @@ def singlethread(src, save_video=True, downscale=4):
 	# When everything done, release the capture
 	cv2.destroyAllWindows()
 
-def residual(src, save_video=True, downscale=4, decay=0.99):
+def residual(src, save_video=True, downscale=4, decay=0.99, speed=1):
 	stream = cv2.VideoCapture(src)
 
 	frame_width = int(stream.get(3)) 
@@ -115,8 +116,8 @@ def residual(src, save_video=True, downscale=4, decay=0.99):
 	out_width = frame_width // downscale
 	out_height = frame_height // downscale
 
-	size = (out_width, out_width) 
-	result = cv2.VideoWriter('out.avi', cv2.VideoWriter_fourcc(*'MJPG'), 10, size) 
+	size = (out_width, out_height) 
+	result = cv2.VideoWriter('out.avi', cv2.VideoWriter_fourcc(*'MJPG'), 30 * speed, size) 
 
 	current = None
 	num_echoes = 16
@@ -150,6 +151,25 @@ def residual(src, save_video=True, downscale=4, decay=0.99):
 	cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-	src = 'P1020780.MP4'
-	singlethread(src)
-	# residual(src)
+	arg_parser = argparse.ArgumentParser(description="A program to add light-trails to video")
+	arg_parser.add_argument("-i", "--in", 
+		type=str, help="Input file name of a video to be processed by the program")
+	arg_parser.add_argument("-s", "--speed", 
+		type=int, default=1, help="Playback speed of the saved video (default: 1x)")
+	arg_parser.add_argument("-ds", "--downscale", type=int, default=4, help="Amount that the input video is downscaled by (higher number = faster processing but lower quality). Default 4x")
+	arg_parser.add_argument("-r", "--residual", action="store_true", 
+	help="Will use residual/decay method instead of buffer method")
+	args = vars(arg_parser.parse_args())
+	src = args["in"]
+	ds = args["downscale"]
+	if ds < 1:
+		raise argparse.ArgumentError("Downscale can't be less than one")
+	spd = args["speed"]
+	if spd < 0:
+		raise argparse.ArgumentError("Speed must be positive!")
+
+	
+	if args["residual"]:
+		residual(src, downscale=ds, speed=spd)
+	else:
+		singlethread(src, downscale=ds, speed=spd)
